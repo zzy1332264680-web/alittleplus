@@ -1,20 +1,15 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# alittleplus
+> 一个基于 React + TypeScript 的前端项目
 
-# Run and deploy your AI Studio app
+## ✨ 功能特性
+- Chat、论坛、市场模块
 
-This contains everything you need to run your app locally.
+## 🛠️ 技术栈
+- 前端：React + TypeScript + Tailwind CSS
+- 构建工具：Vite
+- 后端/服务：Supabase
 
-View your app in AI Studio: https://ai.studio/apps/4b44b152-e420-48de-b0e4-dbca1ac71884
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🚀 快速启动
+### 环境要求
+- Node.js 16+
+- npm / yarn / pnpm
