@@ -54,13 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const fetchProfile = useCallback(async (userId: string, token: string) => {
     try {
-      const response = await fetch('/api/profile', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
     } catch (err) {
       console.error('获取用户资料失败:', err);
     }

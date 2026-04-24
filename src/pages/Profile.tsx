@@ -28,6 +28,7 @@ export default function Profile({ onNavigate, isEditing }: ProfileProps) {
   const [editBio, setEditBio] = useState(profile?.bio || '');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     setEditUsername(profile?.username || '');
@@ -38,6 +39,7 @@ export default function Profile({ onNavigate, isEditing }: ProfileProps) {
 
   const loadTabData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       if (activeTab === 'posts') { setMyPosts(await fetchMyPosts()); }
       else if (activeTab === 'market') { setMyProducts(await fetchMyProducts()); }
@@ -48,7 +50,10 @@ export default function Profile({ onNavigate, isEditing }: ProfileProps) {
         const favs = await fetchFavorites('product');
         setFavProducts(favs.filter(f => f.item).map(f => f.item));
       }
-    } catch { } finally { setLoading(false); }
+    } catch (e) {
+      console.error('加载个人中心内容失败:', e);
+      setLoadError(e instanceof Error ? e.message : '加载个人中心内容失败');
+    } finally { setLoading(false); }
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +141,14 @@ export default function Profile({ onNavigate, isEditing }: ProfileProps) {
       <div className="space-y-6">
         {loading ? (
           <div className="space-y-4">{[1, 2].map(i => <div key={i} className="bg-surface-container-lowest p-8 rounded-2xl animate-pulse"><div className="h-6 bg-surface-container rounded w-2/3 mb-3" /><div className="h-4 bg-surface-container rounded w-full" /></div>)}</div>
+        ) : loadError ? (
+          <div className="bg-surface-container-lowest border border-red-200 rounded-2xl p-10 text-center">
+            <p className="font-bold text-red-600 mb-2">个人中心内容加载失败</p>
+            <p className="text-sm text-outline mb-6">{loadError}</p>
+            <button onClick={loadTabData} className="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all">
+              重试加载
+            </button>
+          </div>
         ) : tabItems.length === 0 ? (
           <div className="bg-surface-container-lowest/50 rounded-3xl p-20 border border-dashed border-outline-variant/20 flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-outline mb-4"><Star size={32} /></div>

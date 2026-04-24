@@ -1,8 +1,7 @@
 /**
  * 功能：用户资料服务层
- * 封装用户资料的查询、更新，以及头像上传功能
+ * 直接通过 Supabase 访问资料数据，以及头像上传功能
  */
-import { get, put } from './api';
 import { supabase } from '../lib/supabase';
 import { ProfileData } from '../types';
 
@@ -11,7 +10,14 @@ import { ProfileData } from '../types';
  * 返回：用户资料数据
  */
 export function fetchMyProfile(): Promise<ProfileData> {
-  return get('/profile');
+  return (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    if (error) throw new Error(error.message);
+    return data;
+  })();
 }
 
 /**
@@ -21,7 +27,20 @@ export function fetchMyProfile(): Promise<ProfileData> {
  * 返回：更新后的用户资料
  */
 export function updateProfile(data: { username?: string; bio?: string; avatar_url?: string }): Promise<ProfileData> {
-  return put('/profile', data);
+  return (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(data)
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return profile;
+  })();
 }
 
 /**
@@ -29,7 +48,19 @@ export function updateProfile(data: { username?: string; bio?: string; avatar_ur
  * 返回：帖子列表
  */
 export function fetchMyPosts(): Promise<any[]> {
-  return get('/profile/posts/my');
+  return (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*, author:profiles!author_id(id, username, avatar_url)')
+      .eq('author_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  })();
 }
 
 /**
@@ -37,7 +68,19 @@ export function fetchMyPosts(): Promise<any[]> {
  * 返回：商品列表
  */
 export function fetchMyProducts(): Promise<any[]> {
-  return get('/profile/products/my');
+  return (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, seller:profiles!seller_id(id, username, avatar_url)')
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  })();
 }
 
 /**

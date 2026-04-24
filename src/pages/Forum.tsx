@@ -32,13 +32,18 @@ export default function Forum({ onNavigate }: ForumProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => { loadPosts(); }, []);
 
   const loadPosts = async (search?: string) => {
     setLoading(true);
+    setLoadError('');
     try { const r = await fetchPosts({ search }); setPosts(r.data || []); }
-    catch (e) { console.error('加载帖子失败:', e); }
+    catch (e) {
+      console.error('加载帖子失败:', e);
+      setLoadError(e instanceof Error ? e.message : '加载帖子失败');
+    }
     finally { setLoading(false); }
   };
 
@@ -154,6 +159,14 @@ export default function Forum({ onNavigate }: ForumProps) {
       </div>
       {loading ? (
         <div className="space-y-6">{[1, 2, 3].map(i => <div key={i} className="bg-surface-container-lowest p-8 rounded-2xl animate-pulse"><div className="h-4 bg-surface-container rounded w-1/3 mb-4" /><div className="h-6 bg-surface-container rounded w-2/3 mb-3" /><div className="h-4 bg-surface-container rounded w-full" /></div>)}</div>
+      ) : loadError ? (
+        <div className="bg-surface-container-lowest border border-red-200 rounded-2xl p-10 text-center">
+          <p className="font-bold text-red-600 mb-2">论坛内容加载失败</p>
+          <p className="text-sm text-outline mb-6">{loadError}</p>
+          <button onClick={() => loadPosts(searchQuery)} className="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all">
+            重试加载
+          </button>
+        </div>
       ) : posts.length === 0 ? (
         <div className="text-center py-20 text-outline"><MessageCircle size={48} className="mx-auto mb-4 opacity-30" /><p className="font-bold">暂无帖子</p><p className="text-sm mt-2">快来发布第一篇帖子吧！</p></div>
       ) : (

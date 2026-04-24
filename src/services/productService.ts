@@ -1,8 +1,7 @@
 /**
  * 功能：商品服务层
- * 封装闲置商品相关的所有 API 调用，以及图片上传到 Supabase Storage
+ * 直接通过 Supabase 访问闲置商品数据，以及图片上传到 Supabase Storage
  */
-import { get, post, put, del } from './api';
 import { ProductWithSeller } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -18,12 +17,29 @@ interface ProductListResponse {
  * 返回：商品列表和总数
  */
 export function fetchProducts(params?: { page?: number; limit?: number; search?: string; category?: string }): Promise<ProductListResponse> {
-  const query = new URLSearchParams();
-  if (params?.page) query.set('page', String(params.page));
-  if (params?.limit) query.set('limit', String(params.limit));
-  if (params?.search) query.set('search', params.search);
-  if (params?.category) query.set('category', params.category);
-  return get(`/products?${query.toString()}`);
+  return (async () => {
+    const limit = params?.limit ?? 20;
+    const page = params?.page ?? 1;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('products')
+      .select('*, seller:profiles!seller_id(id, username, avatar_url)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (params?.search) {
+      query = query.or(`name.ilike.%${params.search}%,description.ilike.%${params.search}%`);
+    }
+
+    if (params?.category && params.category !== 'All Equipment') {
+      query = query.eq('category', params.category);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw new Error(error.message);
+    return { data: data || [], total: count || 0 };
+  })();
 }
 
 /**
@@ -33,7 +49,16 @@ export function fetchProducts(params?: { page?: number; limit?: number; search?:
  * 返回：商品详情（含卖家信息）
  */
 export function fetchProduct(id: string): Promise<ProductWithSeller> {
-  return get(`/products/${id}`);
+  return (async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, seller:profiles!seller_id(id, username, avatar_url)')
+      .eq('id', id)
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  })();
 }
 
 /**
@@ -52,7 +77,29 @@ export function createProduct(data: {
   location?: string;
   images?: string[];
 }): Promise<ProductWithSeller> {
-  return post('/products', data);
+  return (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('请先登录');
+
+    const { data: product, error } = await supabase
+      .from('products')
+      .insert({
+        seller_id: user.id,
+        name: data.name,
+        description: data.description || '',
+        price: Number(data.price),
+        original_price: Number(data.original_price) || 0,
+        category: data.category || '其他',
+        condition: data.condition || '全新',
+        location: data.location || '',
+        images: data.images || [],
+      })
+      .select('*, seller:profiles!seller_id(id, username, avatar_url)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return product;
+  })();
 }
 
 /**
@@ -63,7 +110,17 @@ export function createProduct(data: {
  * 返回：更新后的商品
  */
 export function updateProduct(id: string, data: Partial<ProductWithSeller>): Promise<ProductWithSeller> {
-  return put(`/products/${id}`, data);
+  return (async () => {
+    const { data: product, error } = await supabase
+      .from('products')
+      .update(data)
+      .eq('id', id)
+      .select('*, seller:profiles!seller_id(id, username, avatar_url)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return product;
+  })();
 }
 
 /**
@@ -72,7 +129,11 @@ export function updateProduct(id: string, data: Partial<ProductWithSeller>): Pro
  *     id: 商品ID
  */
 export function deleteProduct(id: string): Promise<{ message: string }> {
-  return del(`/products/${id}`);
+  return (async () => {
+    const { error } = await supabase.from('products').update({ status: 'removed' }).eq('id', id);
+    if (error) throw new Error(error.message);
+    return { message: '商品已删除' };
+  })();
 }
 
 /**

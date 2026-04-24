@@ -1,12 +1,15 @@
 import { supabase } from '../lib/supabase';
 
-// 修复：明确指向后端 3001 端口
-const API_BASE = 'http://localhost:3001/api';
+// 使用相对路径，开发时交给 Vite 代理，局域网访问时也不会错误指向访问者自己的 localhost。
+const API_BASE = '/api';
+const REQUEST_TIMEOUT_MS = 10000;
 
 /** 功能：发送 HTTP 请求到后端 API */
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   /* 获取当前用户的会话令牌 */
   const { data: { session } } = await supabase.auth.getSession();
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -18,17 +21,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${session.access_token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '请求失败' }));
-    throw new Error(error.message || `请求失败 (${response.status})`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: '请求失败' }));
+      throw new Error(error.message || `请求失败 (${response.status})`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('请求超时，请检查前端地址、代理配置或后端服务是否正常');
+    }
+    if (error instanceof TypeError) {
+      throw new Error('无法连接到后端服务，请检查开发服务器和接口代理是否正常');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
 
 /** GET 请求 */

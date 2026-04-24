@@ -22,13 +22,18 @@ export default function Market({ onNavigate }: MarketProps) {
   const [searchQuery, setSearchQuery] = useState('');
   // 🔥 修复：正确的 useState 调用
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => { loadProducts(); }, []);
 
   const loadProducts = async (search?: string) => {
     setLoading(true);
+    setLoadError('');
     try { const r = await fetchProducts({ search }); setProducts(r.data || []); }
-    catch (e) { console.error('加载商品失败:', e); }
+    catch (e) {
+      console.error('加载商品失败:', e);
+      setLoadError(e instanceof Error ? e.message : '加载商品失败');
+    }
     finally { setLoading(false); }
   };
 
@@ -104,6 +109,14 @@ export default function Market({ onNavigate }: MarketProps) {
         </div>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">{[1, 2, 3].map(i => <div key={i} className="bg-surface-container-lowest rounded-2xl overflow-hidden animate-pulse"><div className="aspect-square bg-surface-container" /><div className="p-5"><div className="h-4 bg-surface-container rounded w-1/3 mb-4" /><div className="h-6 bg-surface-container rounded w-2/3 mb-3" /><div className="h-4 bg-surface-container rounded w-full" /></div></div>)}</div>
+        ) : loadError ? (
+          <div className="bg-surface-container-lowest border border-red-200 rounded-2xl p-10 text-center">
+            <p className="font-bold text-red-600 mb-2">闲置列表加载失败</p>
+            <p className="text-sm text-outline mb-6">{loadError}</p>
+            <button onClick={() => loadProducts(searchQuery)} className="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all">
+              重试加载
+            </button>
+          </div>
         ) : products.length === 0 ? (
           <div className="text-center py-20 text-outline"><MapPin size={48} className="mx-auto mb-4 opacity-30" /><p className="font-bold">暂无商品</p><p className="text-sm mt-2">快来发布您的第一件闲置吧！</p></div>
         ) : (
